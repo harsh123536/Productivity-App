@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>OPUS — Personal Productivity OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* ============================================================
+   DESIGN SYSTEM — edit here, changes propagate everywhere
+   ============================================================ */
+:root {
+  /* Brand palette */
+  --c-bg:          #0a0a0f;
+  --c-surface:     #111118;
+  --c-surface2:    #18181f;
+  --c-surface3:    #22222c;
+  --c-border:      rgba(255,255,255,0.07);
+  --c-border2:     rgba(255,255,255,0.12);
+
+  /* Accent — change this ONE value to retheme the whole app */
+  --c-accent:      #7c6cfa;
+  --c-accent-dim:  rgba(124,108,250,0.15);
+  --c-accent-glow: rgba(124,108,250,0.35);
+
+  /* Semantic */
+  --c-green:       #2ecc8f;
+  --c-green-dim:   rgba(46,204,143,0.12);
+  --c-amber:       #f5a623;
+  --c-amber-dim:   rgba(245,166,35,0.12);
+  --c-red:         #ff5c5c;
+  --c-red-dim:     rgba(255,92,92,0.12);
+  --c-blue:        #5b9cf6;
+  --c-blue-dim:    rgba(91,156,246,0.12);
+
+  /* Text */
+  --c-text:        #f0f0f8;
+  --c-text2:       #9090a8;
+  --c-text3:       #5a5a72;
+
+  /* Typography */
+  --f-display:     'Syne', sans-serif;
+  --f-body:        'DM Sans', sans-serif;
+
+  /* Spacing scale */
+  --sp-xs: 4px;  --sp-sm: 8px;  --sp-md: 16px;
+  --sp-lg: 24px; --sp-xl: 40px;
+
+  /* Radius */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 24px;
+
+  /* Transitions */
+  --t-fast: 0.15s ease; --t-med: 0.25s ease; --t-slow: 0.4s ease;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--f-body);
+  background: var(--c-bg);
+  color: var(--c-text);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+input, select, textarea, button {
+  font-family: var(--f-body);
+  font-size: 14px;
+  color: var(--c-text);
+}
+button { cursor: pointer; }
+input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* Sidebar */
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border);
+  display: flex; flex-direction: column;
+  padding: var(--sp-lg) 0;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 0 var(--sp-lg) var(--sp-xl);
+  font-family: var(--f-display);
+  font-size: 22px; font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--c-text);
+}
+.sidebar-logo span { color: var(--c-accent); }
+
+.nav-section { margin-bottom: var(--sp-lg); }
+.nav-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  color: var(--c-text3); text-transform: uppercase;
+  padding: 0 var(--sp-lg) var(--sp-sm);
+}
+.nav-item {
+  display: flex; align-items: center; gap: var(--sp-sm);
+  padding: 9px var(--sp-lg);
+  font-size: 14px; color: var(--c-text2);
+  background: none; border: none; width: 100%;
+  text-align: left; transition: var(--t-fast);
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.nav-item:hover { color: var(--c-text); background: var(--c-surface2); }
+.nav-item.active {
+  color: var(--c-accent);
+  background: var(--c-accent-dim);
+  border-left-color: var(--c-accent);
+  font-weight: 500;
+}
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: var(--sp-lg);
+  border-top: 1px solid var(--c-border);
+}
+.user-card {
+  background: var(--c-surface2);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm) var(--sp-md);
+}
+.user-name { font-size: 13px; font-weight: 500; }
+.user-sub { font-size: 11px; color: var(--c-text3); }
+
+/* Main content */
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.topbar {
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  padding: var(--sp-md) var(--sp-xl);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.topbar-title {
+  font-family: var(--f-display);
+  font-size: 18px; font-weight: 700;
+}
+.topbar-meta { font-size: 12px; color: var(--c-text3); }
+
+.page { display: none; padding: var(--sp-xl); max-width: 1100px; }
+.page.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ============================================================
+   SHARED COMPONENTS
+   ============================================================ */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-lg);
+  margin-bottom: var(--sp-md);
+}
+.card-title {
+  font-family: var(--f-display);
+  font-size: 14px; font-weight: 600; letter-spacing: 0.3px;
+  color: var(--c-text2); text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: var(--sp-md);
+}
+.grid-4 { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--sp-md); margin-bottom: var(--sp-md); }
+.grid-3 { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--sp-md); margin-bottom: var(--sp-md); }
+.grid-2 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-md); margin-bottom: var(--sp-md); }
+
+.metric {
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-md);
+}
+.metric-label { font-size: 11px; color: var(--c-text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+.metric-val { font-family: var(--f-display); font-size: 26px; font-weight: 700; line-height: 1; }
+.metric-sub { font-size: 11px; color: var(--c-text3); margin-top: 4px; }
+.metric-accent { color: var(--c-accent); }
+.metric-green { color: var(--c-green); }
+.metric-amber { color: var(--c-amber); }
+.metric-red { color: var(--c-red); }
+
+/* Inputs */
+.input-field {
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--r-md);
+  padding: 9px 14px;
+  color: var(--c-text);
+  outline: none;
+  transition: var(--t-fast);
+  width: 100%;
+}
+.input-field:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-dim); }
+.input-field::placeholder { color: var(--c-text3); }
+
+.btn {
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--r-md);
+  padding: 9px 18px;
+  color: var(--c-text2);
+  font-weight: 500;
+  transition: var(--t-fast);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--c-surface3); color: var(--c-text); }
+.btn-accent {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: #fff;
+}
+.btn-accent:hover { filter: brightness(1.1); color: #fff; }
+.btn-danger { background: var(--c-red-dim); border-color: var(--c-red); color: var(--c-red); }
+
+.row { display: flex; gap: var(--sp-sm); align-items: center; flex-wrap: wrap; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: var(--r-sm);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+}
+.badge-high { background: var(--c-red-dim); color: var(--c-red); }
+.badge-med  { background: var(--c-amber-dim); color: var(--c-amber); }
+.badge-low  { background: var(--c-green-dim); color: var(--c-green); }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid var(--c-border); margin: var(--sp-md) 0; }
+
+/* Progress bar */
+.pbar-bg { height: 5px; background: var(--c-surface3); border-radius: 3px; overflow: hidden; }
+.pbar-fill { height: 5px; border-radius: 3px; transition: width var(--t-slow); }
+
+/* Insight cards */
+.insight { border-left: 2px solid var(--c-accent); background: var(--c-accent-dim); border-radius: 0 var(--r-md) var(--r-md) 0; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; }
+.insight.good { border-color: var(--c-green); background: var(--c-green-dim); }
+.insight.warn { border-color: var(--c-amber); background: var(--c-amber-dim); }
+.insight.bad  { border-color: var(--c-red); background: var(--c-red-dim); }
+
+/* Streak badge */
+.streak-pill {
+  font-size: 11px; color: var(--c-amber);
+  background: var(--c-amber-dim);
+  padding: 1px 7px; border-radius: var(--r-sm);
+  margin-left: 6px;
+}
+
+/* Chart wrapper */
+.chart-wrap { position: relative; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-surface3); border-radius: 10px; }
+
+/* ============================================================
+   TASKS PAGE
+   ============================================================ */
+.voice-ring {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+  transition: var(--t-med);
+  position: relative;
+}
+.voice-ring.listening {
+  background: var(--c-accent-dim);
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 8px var(--c-accent-dim);
+  animation: voicePulse 1.4s infinite;
+}
+@keyframes voicePulse {
+  0%,100% { box-shadow: 0 0 0 0px var(--c-accent-glow); }
+  50%      { box-shadow: 0 0 0 14px transparent; }
+}
+.voice-transcript {
+  flex: 1;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--c-text2);
+  min-height: 40px;
+}
+.ai-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--c-accent-dim); color: var(--c-accent);
+  border: 1px solid rgba(124,108,250,0.3);
+  border-radius: var(--r-xl);
+  padding: 3px 10px; font-size: 11px; font-weight: 600;
+  margin-bottom: var(--sp-sm);
+}
+.task-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--c-border);
+  animation: slideIn var(--t-med);
+}
+@keyframes slideIn { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+.task-row:last-child { border-bottom: none; }
+.task-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--c-border2);
+  flex-shrink: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; cursor: pointer;
+  transition: var(--t-fast);
+}
+.task-check.done { background: var(--c-green); border-color: var(--c-green); color: #fff; }
+.task-body { flex: 1; min-width: 0; }
+.task-text { font-size: 14px; line-height: 1.4; }
+.task-text.done { text-decoration: line-through; color: var(--c-text3); }
+.task-ai-note { font-size: 12px; color: var(--c-accent); margin-top: 3px; font-style: italic; }
+.task-meta-row { display: flex; gap: 6px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+.task-due { font-size: 11px; color: var(--c-text3); }
+
+/* ============================================================
+   HABITS PAGE
+   ============================================================ */
+.habit-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+.habit-item:last-child { border-bottom: none; }
+.habit-emoji { font-size: 20px; width: 30px; text-align: center; flex-shrink: 0; }
+.habit-info { flex: 1; min-width: 0; }
+.habit-name { font-size: 14px; font-weight: 500; }
+.habit-pts-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.habit-pts-text { font-size: 11px; color: var(--c-text3); }
+.habit-toggle {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1.5px solid var(--c-border2);
+  background: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+  transition: var(--t-fast);
+}
+.habit-toggle.done { background: var(--c-green); border-color: var(--c-green); }
+.habit-remove { background: none; border: none; color: var(--c-text3); font-size: 16px; padding: 4px; flex-shrink: 0; }
+.habit-remove:hover { color: var(--c-red); }
+
+/* ============================================================
+   SLEEP PAGE
+   ============================================================ */
+.sleep-quality-ring {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  font-family: var(--f-display);
+  font-size: 24px; font-weight: 800;
+  border: 3px solid var(--c-accent);
+}
+
+/* ============================================================
+   NUTRITION PAGE
+   ============================================================ */
+.macro-bar { height: 8px; border-radius: 4px; margin-top: 4px; }
+.food-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+}
+.food-row:last-child { border-bottom: none; }
+
+/* Exercise row */
+.ex-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+}
+.ex-row:last-child { border-bottom: none; }
+
+/* ============================================================
+   REPORT PAGE
+   ============================================================ */
+.report-header {
+  background: linear-gradient(135deg, var(--c-accent-dim), var(--c-surface2));
+  border: 1px solid rgba(124,108,250,0.25);
+  border-radius: var(--r-xl);
+  padding: var(--sp-xl);
+  margin-bottom: var(--sp-md);
+  text-align: center;
+}
+.report-score-ring {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--c-accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  margin: 0 auto var(--sp-md);
+}
+.report-score-num {
+  font-family: var(--f-display);
+  font-size: 32px; font-weight: 800;
+  color: var(--c-accent);
+  line-height: 1;
+}
+.report-title {
+  font-family: var(--f-display);
+  font-size: 22px; font-weight: 700;
+}
+.report-section { margin-bottom: var(--sp-lg); }
+.report-section h3 {
+  font-family: var(--f-display);
+  font-size: 14px; font-weight: 600;
+  color: var(--c-accent); text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: var(--sp-sm);
+}
+.report-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+}
+.report-row:last-child { border-bottom: none; }
+.report-val { font-weight: 600; }
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--r-xl);
+  padding: var(--sp-xl);
+  max-width: 560px; width: 90%;
+  max-height: 90vh; overflow-y: auto;
+  animation: fadeIn 0.2s ease;
+}
+.modal h2 { font-family: var(--f-display); font-size: 18px; margin-bottom: var(--sp-md); }
+.modal-footer { display: flex; gap: var(--sp-sm); justify-content: flex-end; margin-top: var(--sp-md); }
+.form-group { margin-bottom: var(--sp-md); }
+.form-label { font-size: 12px; color: var(--c-text2); margin-bottom: 5px; display: block; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Notification toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--r-lg);
+  padding: 12px 20px;
+  font-size: 14px; color: var(--c-text);
+  z-index: 200;
+  transform: translateY(20px); opacity: 0;
+  transition: var(--t-med);
+  pointer-events: none;
+}
+.toast.show { transform: none; opacity: 1; }
+
+/* Level bar in sidebar */
+.level-section { padding: var(--sp-lg); border-top: 1px solid var(--c-border); }
+.level-name { font-size: 12px; font-weight: 600; color: var(--c-accent); margin-bottom: 4px; }
+.level-pts { font-size: 11px; color: var(--c-text3); margin-bottom: 6px; }
+
+/* ============================================================
+   AUTH SCREEN
+   ============================================================ */
+#auth-screen {
+  position: fixed; inset: 0;
+  background: var(--c-bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+}
+.auth-box {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--r-xl);
+  padding: 48px 40px;
+  width: 100%; max-width: 400px;
+  animation: fadeIn 0.3s ease;
+}
+.auth-logo {
+  font-family: var(--f-display);
+  font-size: 32px; font-weight: 800;
+  text-align: center; margin-bottom: 6px;
+}
+.auth-logo span { color: var(--c-accent); }
+.auth-tagline { font-size: 13px; color: var(--c-text3); text-align: center; margin-bottom: 36px; }
+.auth-tabs { display: flex; gap: 0; margin-bottom: 28px; background: var(--c-surface2); border-radius: var(--r-md); padding: 3px; }
+.auth-tab {
+  flex: 1; padding: 8px; border: none; background: none;
+  border-radius: var(--r-sm); font-size: 13px; font-weight: 500;
+  color: var(--c-text3); cursor: pointer; transition: var(--t-fast);
+}
+.auth-tab.active { background: var(--c-surface); color: var(--c-text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.auth-form-group { margin-bottom: 16px; }
+.auth-label { font-size: 11px; color: var(--c-text2); margin-bottom: 5px; display: block; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.auth-submit {
+  width: 100%; padding: 12px;
+  background: var(--c-accent); border: none;
+  border-radius: var(--r-md); color: #fff;
+  font-size: 15px; font-weight: 600;
+  font-family: var(--f-body);
+  cursor: pointer; margin-top: 8px;
+  transition: var(--t-fast);
+}
+.auth-submit:hover { filter: brightness(1.1); }
+.auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-error { font-size: 12px; color: var(--c-red); background: var(--c-red-dim); border-radius: var(--r-sm); padding: 8px 12px; margin-top: 12px; display: none; }
+.auth-success { font-size: 12px; color: var(--c-green); background: var(--c-green-dim); border-radius: var(--r-sm); padding: 8px 12px; margin-top: 12px; display: none; }
+.auth-loading { text-align: center; color: var(--c-text2); font-size: 14px; padding: 20px 0; }
+
+/* Sync indicator */
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c-green); display: inline-block;
+  margin-right: 5px;
+}
+.sync-dot.syncing { background: var(--c-amber); animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- TASK CUSTOM ADD MODAL -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal">
+    <h2>Add task details</h2>
+    <div class="form-group">
+      <label class="form-label">Task</label>
+      <input class="input-field" id="m-task-text" placeholder="What needs to be done?"/>
+    </div>
+    <div class="row" style="gap:12px;margin-bottom:var(--sp-md)">
+      <div style="flex:1">
+        <label class="form-label">Priority</label>
+        <select class="input-field" id="m-task-pri">
+          <option value="high">🔴 High</option>
+          <option value="med" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Due date</label>
+        <input class="input-field" type="date" id="m-task-due"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="input-field" id="m-task-cat">
+        <option value="study">📚 Study</option>
+        <option value="fitness">💪 Fitness</option>
+        <option value="personal">🌟 Personal</option>
+        <option value="language">🗣 Language</option>
+        <option value="health">🏥 Health</option>
+        <option value="other">📋 Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Estimated time (minutes)</label>
+      <input class="input-field" type="number" id="m-task-time" placeholder="e.g. 30" min="1"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="input-field" id="m-task-notes" rows="2" placeholder="Any extra context…" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('taskModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveModalTask()">Add task</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal" style="max-width:680px">
+    <div id="report-content"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('reportModal')">Close</button>
+      <button class="btn btn-accent" onclick="exportReport()">Export as HTML</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">OP<span>US</span></div>
+    <div class="auth-tagline">Your personal productivity OS — private & secure</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup',this)">Create account</button>
+    </div>
+
+    <!-- Login form -->
+    <div id="auth-login">
+      <div class="auth-form-group">
+        <label class="auth-label">Email</label>
+        <input class="input-field" type="email" id="login-email" placeholder="you@email.com" autocomplete="email"/>
+      </div>
+      <div class="auth-form-group">
+        <label class="auth-label">Password</label>
+        <input class="input-field" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="auth-submit" id="login-btn" onclick="doLogin()">Sign in</button>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+
+    <!-- Signup form -->
+    <div id="auth-signup" style="display:none">
+      <div class="auth-form-group">
+        <label class="auth-label">Email</label>
+        <input class="input-field" type="email" id="signup-email" placeholder="you@email.com" autocomplete="email"/>
+      </div>
+      <div class="auth-form-group">
+        <label class="auth-label">Password (min 6 characters)</label>
+        <input class="input-field" type="password" id="signup-password" placeholder="••••••••" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter')doSignup()"/>
+      </div>
+      <button class="auth-submit" id="signup-btn" onclick="doSignup()">Create account</button>
+      <div class="auth-error" id="signup-error"></div>
+      <div class="auth-success" id="signup-success"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="app-shell" id="app-shell" style="display:none">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">OP<span>US</span></div>
+
+    <div class="nav-section">
+      <div class="nav-label">Daily</div>
+      <button class="nav-item active" onclick="showPage('dashboard',this)"><span class="icon">⚡</span>Dashboard</button>
+      <button class="nav-item" onclick="showPage('tasks',this)"><span class="icon">✓</span>Tasks</button>
+      <button class="nav-item" onclick="showPage('habits',this)"><span class="icon">🔥</span>Habits</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Tracking</div>
+      <button class="nav-item" onclick="showPage('sleep',this)"><span class="icon">😴</span>Sleep</button>
+      <button class="nav-item" onclick="showPage('nutrition',this)"><span class="icon">🍽</span>Nutrition</button>
+      <button class="nav-item" onclick="showPage('exercise',this)"><span class="icon">💪</span>Exercise</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Insights</div>
+      <button class="nav-item" onclick="showPage('patterns',this)"><span class="icon">📊</span>Patterns</button>
+      <button class="nav-item" onclick="generateReport('daily')"><span class="icon">📋</span>Daily report</button>
+      <button class="nav-item" onclick="generateReport('weekly')"><span class="icon">📅</span>Weekly report</button>
+    </div>
+
+    <div class="level-section">
+      <div class="level-name" id="sb-level">Level 1 · Starter</div>
+      <div class="level-pts" id="sb-pts">0 pts today</div>
+      <div class="pbar-bg"><div class="pbar-fill" id="sb-bar" style="background:var(--c-accent);width:0%"></div></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:11px;color:var(--c-text3)"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Synced</span></span>
+        <button onclick="doLogout()" style="background:none;border:none;font-size:11px;color:var(--c-text3);cursor:pointer;padding:0">Sign out</button>
+      </div>
+      <div class="user-card">
+        <div class="user-name" id="user-email-display">—</div>
+        <div class="user-sub" id="sb-date"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+        <div class="topbar-meta" id="page-sub">Good morning — here's your overview</div>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="generateReport('daily')" style="font-size:12px">📋 Report</button>
+      </div>
+    </div>
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div class="page active" id="page-dashboard" style="padding:var(--sp-xl)">
+      <div class="grid-4" id="dash-metrics"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Today's habit progress</div>
+          <div id="dash-habits-mini"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Weekly score</div>
+          <div class="chart-wrap" style="height:160px"><canvas id="dashWeekChart" role="img" aria-label="Weekly scores">Weekly scores</canvas></div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Nutrition today</div>
+          <div id="dash-nutrition"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Sleep last night</div>
+          <div id="dash-sleep"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">AI daily insights</div>
+        <div id="dash-insights"></div>
+      </div>
+    </div>
+
+    <!-- ==================== TASKS ==================== -->
+    <div class="page" id="page-tasks" style="padding:var(--sp-xl)">
+      <div class="card" style="margin-bottom:var(--sp-md)">
+        <div class="card-title">Voice to task — AI powered</div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="voice-ring" id="voice-btn" onclick="toggleVoice()" title="Tap to speak">🎙</button>
+          <div class="voice-transcript" id="voice-transcript">Tap the mic and speak your task. AI will analyse and categorise it automatically.</div>
+        </div>
+        <div id="ai-analysis-box" style="display:none">
+          <div class="ai-tag">✦ AI analysis</div>
+          <div id="ai-analysis-text" style="font-size:13px;color:var(--c-text2)"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input class="input-field" id="task-text-input" placeholder="Or type a task…" style="flex:1" onkeydown="if(event.key==='Enter')quickAddTask()"/>
+          <button class="btn btn-accent" onclick="openTaskModal()">+ Add with details</button>
+          <button class="btn" onclick="quickAddTask()">Quick add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-md)">
+          <div class="card-title" style="margin:0">Active tasks</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="filterTasks('all')">All</button>
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="filterTasks('high')">High</button>
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="filterTasks('pending')">Pending</button>
+          </div>
+        </div>
+        <div id="task-list"></div>
+      </div>
+    </div>
+
+    <!-- ==================== HABITS ==================== -->
+    <div class="page" id="page-habits" style="padding:var(--sp-xl)">
+      <div class="grid-4" id="habit-metrics"></div>
+      <div class="card">
+        <div class="card-title">Today's habits</div>
+        <div id="habit-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Add habit</div>
+        <div class="row">
+          <input class="input-field" id="h-name" placeholder="Habit name…" style="flex:1"/>
+          <input class="input-field" id="h-pts" type="number" placeholder="pts" style="width:70px" min="1" max="50"/>
+          <input class="input-field" id="h-emoji" placeholder="emoji" style="width:65px"/>
+          <button class="btn btn-accent" onclick="addHabit()">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SLEEP ==================== -->
+    <div class="page" id="page-sleep" style="padding:var(--sp-xl)">
+      <div class="grid-3" id="sleep-metrics"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Log sleep</div>
+          <div class="form-group">
+            <label class="form-label">Bedtime</label>
+            <input class="input-field" type="time" id="sl-bed" value="23:00"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Wake time</label>
+            <input class="input-field" type="time" id="sl-wake" value="06:30"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quality on waking (1–10)</label>
+            <input class="input-field" type="number" id="sl-quality" min="1" max="10" value="7"/>
+          </div>
+          <button class="btn btn-accent" onclick="logSleep()" style="width:100%">Log sleep</button>
+        </div>
+        <div class="card">
+          <div class="card-title">7-night duration</div>
+          <div class="chart-wrap" style="height:180px"><canvas id="sleepDurChart" role="img" aria-label="Sleep duration">Sleep chart</canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Recovery vs productivity</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="sleepRecovChart" role="img" aria-label="Recovery chart">Recovery chart</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Sleep insights</div>
+        <div id="sleep-insights"></div>
+      </div>
+    </div>
+
+    <!-- ==================== NUTRITION ==================== -->
+    <div class="page" id="page-nutrition" style="padding:var(--sp-xl)">
+      <div style="background:var(--c-accent-dim);border:1px solid rgba(124,108,250,0.2);border-radius:var(--r-lg);padding:var(--sp-md);margin-bottom:var(--sp-md);font-size:13px;color:var(--c-text2)">
+        📊 Profile: 19 yrs · 168 cm · <span id="current-weight-display">48.5 kg</span> · BMI <span id="bmi-display">—</span> · TDEE <span id="tdee-display">—</span> kcal/day
+      </div>
+
+      <div class="grid-4" id="nut-metrics"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Log food</div>
+          <div class="row" style="margin-bottom:10px">
+            <input class="input-field" id="food-name" placeholder="Food item…" style="flex:1"/>
+            <input class="input-field" id="food-kcal" type="number" placeholder="kcal" style="width:80px" min="0"/>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <input class="input-field" id="food-protein" type="number" placeholder="protein g" style="flex:1" min="0"/>
+            <input class="input-field" id="food-carbs" type="number" placeholder="carbs g" style="flex:1" min="0"/>
+            <input class="input-field" id="food-fat" type="number" placeholder="fat g" style="flex:1" min="0"/>
+          </div>
+          <button class="btn btn-accent" onclick="logFood()" style="width:100%">Log food</button>
+          <div id="food-list" style="margin-top:var(--sp-md)"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Log weight</div>
+          <div class="form-group">
+            <label class="form-label">Current weight (kg)</label>
+            <input class="input-field" type="number" id="weight-input" placeholder="e.g. 48.5" step="0.1" min="30" max="200"/>
+          </div>
+          <button class="btn btn-accent" onclick="logWeight()" style="width:100%;margin-bottom:var(--sp-md)">Log weight</button>
+          <div class="card-title">Target</div>
+          <div class="form-group">
+            <label class="form-label">Goal weight (kg)</label>
+            <input class="input-field" type="number" id="weight-goal" placeholder="e.g. 55" step="0.1"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Goal type</label>
+            <select class="input-field" id="weight-goal-type">
+              <option value="gain">Gain weight (bulk)</option>
+              <option value="maintain">Maintain weight</option>
+              <option value="lose">Lose weight (cut)</option>
+            </select>
+          </div>
+          <button class="btn" onclick="setWeightGoal()" style="width:100%">Set goal</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Weight trend</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="weightChart" role="img" aria-label="Weight trend chart">Weight chart</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Calorie balance this week</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="calChart" role="img" aria-label="Calorie chart">Calorie chart</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Nutrition insights</div>
+        <div id="nut-insights"></div>
+      </div>
+    </div>
+
+    <!-- ==================== EXERCISE ==================== -->
+    <div class="page" id="page-exercise" style="padding:var(--sp-xl)">
+      <div class="grid-3" id="ex-metrics"></div>
+      <div class="card">
+        <div class="card-title">Log exercise</div>
+        <div class="row" style="margin-bottom:10px">
+          <select class="input-field" id="ex-type" style="flex:1">
+            <option value="gym">💪 Gym / Weight training</option>
+            <option value="football">⚽ Football / Futsal</option>
+            <option value="run">🏃 Running</option>
+            <option value="cycle">🚴 Cycling</option>
+            <option value="swim">🏊 Swimming</option>
+            <option value="hiit">🔥 HIIT</option>
+            <option value="yoga">🧘 Yoga / Stretching</option>
+            <option value="walk">🚶 Walking</option>
+            <option value="other">🏋 Other</option>
+          </select>
+          <input class="input-field" id="ex-duration" type="number" placeholder="mins" style="width:80px" min="1"/>
+          <input class="input-field" id="ex-intensity" type="number" placeholder="intensity 1-10" style="width:130px" min="1" max="10"/>
+        </div>
+        <div class="row">
+          <input class="input-field" id="ex-name" placeholder="Custom name (optional)…" style="flex:1"/>
+          <button class="btn btn-accent" onclick="logExercise()">Log</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Exercise log</div>
+        <div id="ex-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Weekly calories burned</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="exCalChart" role="img" aria-label="Exercise calories chart">Exercise chart</canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Calorie balance (intake vs burned)</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="netCalChart" role="img" aria-label="Net calorie chart">Net calorie chart</canvas></div>
+      </div>
+    </div>
+
+    <!-- ==================== PATTERNS ==================== -->
+    <div class="page" id="page-patterns" style="padding:var(--sp-xl)">
+      <div class="grid-4" id="pat-metrics"></div>
+      <div class="card">
+        <div class="card-title">Productivity pattern — all factors</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="patternChart" role="img" aria-label="Multi factor productivity pattern chart">Pattern chart</canvas></div>
+        <div id="pattern-legend" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--c-text2)"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Factor breakdown</div>
+        <div id="factor-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">AI pattern insights</div>
+        <div id="pat-insights"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<script>
+/* ============================================================
+   SUPABASE — auth + cloud sync
+   ============================================================ */
+const SB_URL  = 'https://rwylvklmxamqmgcspflq.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3eWx2a2xteGFtcW1nY3NwZmxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0ODkzOTIsImV4cCI6MjA5MjA2NTM5Mn0.p8VJT0j78k9l6rwtiR089YCt2YN-0prmHe1RByLmm30';
+const sb      = supabase.createClient(SB_URL, SB_KEY);
+let currentUser = null;
+let saveTimer   = null;
+
+/* Auth UI helpers */
+function switchAuthTab(tab, btn) {
+  document.querySelectorAll('.auth-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('auth-login').style.display  = tab==='login'  ? '' : 'none';
+  document.getElementById('auth-signup').style.display = tab==='signup' ? '' : 'none';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-error');
+  err.style.display='none'; btn.disabled=true; btn.textContent='Signing in…';
+  const {error} = await sb.auth.signInWithPassword({email, password:pass});
+  btn.disabled=false; btn.textContent='Sign in';
+  if(error){ err.textContent=error.message; err.style.display='block'; }
+}
+
+async function doSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-password').value;
+  const btn   = document.getElementById('signup-btn');
+  const err   = document.getElementById('signup-error');
+  const suc   = document.getElementById('signup-success');
+  err.style.display='none'; suc.style.display='none';
+  btn.disabled=true; btn.textContent='Creating account…';
+  const {error} = await sb.auth.signUp({email, password:pass});
+  btn.disabled=false; btn.textContent='Create account';
+  if(error){ err.textContent=error.message; err.style.display='block'; }
+  else { suc.textContent='Account created! Check your email to confirm, then sign in.'; suc.style.display='block'; }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+function setSyncStatus(status) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if(!dot) return;
+  if(status==='syncing'){ dot.className='sync-dot syncing'; label.textContent='Saving…'; }
+  else if(status==='saved'){ dot.className='sync-dot'; label.textContent='Synced'; }
+  else { dot.className='sync-dot'; dot.style.background='var(--c-red)'; label.textContent='Offline'; }
+}
+
+/* Load data from Supabase, fall back to default */
+async function loadFromCloud() {
+  const {data, error} = await sb
+    .from('user_data')
+    .select('data')
+    .eq('user_id', currentUser.id)
+    .single();
+  if(error || !data) return defaultState();
+  return {...defaultState(), ...data.data};
+}
+
+/* Save to Supabase — debounced 1.5s so rapid changes don't spam */
+function save() {
+  setSyncStatus('syncing');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const {error} = await sb.from('user_data').upsert({
+      user_id: currentUser.id,
+      data: S,
+      updated_at: new Date().toISOString(),
+    }, {onConflict: 'user_id'});
+    setSyncStatus(error ? 'error' : 'saved');
+  }, 1500);
+}
+
+/* Boot sequence — called once auth state confirms user is logged in */
+async function bootApp(user) {
+  currentUser = user;
+  document.getElementById('user-email-display').textContent = user.email;
+
+  // Show loading state
+  document.getElementById('auth-screen').innerHTML =
+    '<div style="color:var(--c-text2);font-size:14px;text-align:center"><div style="font-family:var(--f-display);font-size:28px;font-weight:800;margin-bottom:12px">OP<span style="color:#7c6cfa">US</span></div>Loading your data…</div>';
+
+  S = await loadFromCloud();
+
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display   = 'flex';
+
+  document.getElementById('sb-date').textContent =
+    new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  document.getElementById('m-task-due').value = dateStr(0);
+
+  renderDashboard();
+  updateSidebar();
+  setSyncStatus('saved');
+}
+
+/* Listen for auth state changes */
+sb.auth.onAuthStateChange((event, session) => {
+  if(session && session.user) bootApp(session.user);
+});
+
+/* ============================================================
+   DATA LAYER — single source of truth
+   All state lives here; components read from and write to this
+   ============================================================ */
+let S = null; // populated after login by bootApp()
+
+function defaultState() {
+  return {
+    habits: [
+      {id:1,name:'Gym workout',pts:15,streak:0,done:false,emoji:'💪'},
+      {id:2,name:'Online lecture',pts:10,streak:0,done:false,emoji:'📚'},
+      {id:3,name:'Arabic study',pts:10,streak:0,done:false,emoji:'🗣'},
+      {id:4,name:'Football / workout',pts:12,streak:0,done:false,emoji:'⚽'},
+      {id:5,name:'Wake up early',pts:8,streak:0,done:false,emoji:'🌅'},
+      {id:6,name:'Skin care',pts:5,streak:0,done:false,emoji:'✨'},
+      {id:7,name:'Drink 4–5L water',pts:8,streak:0,done:false,emoji:'💧'},
+      {id:8,name:'3000 kcal intake',pts:8,streak:0,done:false,emoji:'🍽'},
+      {id:9,name:'Sleep 7–8 hrs',pts:10,streak:0,done:false,emoji:'😴'},
+      {id:10,name:'No social media',pts:10,streak:0,done:false,emoji:'🚫'},
+    ],
+    tasks: [],
+    sleepLog: Array(7).fill(null).map((_,i)=>i<6?{bed:'23:00',wake:'06:30',quality:6+Math.floor(Math.random()*3),dur:7+Math.round(Math.random())}:null),
+    weekScores: [42,68,55,80,60,75,0],
+    foodLog: [],
+    weightLog: [{date:dateStr(-6),w:48.2},{date:dateStr(-5),w:48.4},{date:dateStr(-4),w:48.3},{date:dateStr(-3),w:48.5},{date:dateStr(-2),w:48.4},{date:dateStr(-1),w:48.6},{date:dateStr(0),w:48.5}],
+    weightGoal: 55,
+    weightGoalType: 'gain',
+    exerciseLog: [],
+    weekCaloriesIn:  [2800,3100,2650,3200,2900,3000,0],
+    weekCaloriesOut: [300,450,200,500,350,420,0],
+    profile: {age:19, height:168.5, weight:48.5},
+  };
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function streakMult(s) { return s>=14?2:s>=7?1.5:s>=3?1.2:1; }
+function habitPts(h) { return h.done ? Math.round(h.pts * streakMult(h.streak)) : 0; }
+function totalPts() { return S.habits.reduce((a,h) => a+habitPts(h), 0); }
+function maxPts()   { return S.habits.reduce((a,h) => a+Math.round(h.pts*streakMult(h.streak)), 0); }
+function pct(v,mx)  { return mx>0 ? Math.round(v/mx*100) : 0; }
+
+function levelInfo(pts) {
+  const L=[{n:'Starter',mx:50},{n:'Focused',mx:120},{n:'Consistent',mx:220},{n:'Disciplined',mx:360},{n:'Elite',mx:Infinity}];
+  for(let i=0;i<L.length;i++) {
+    const prev = i>0?L[i-1].mx:0;
+    if(pts<=L[i].mx) return {lvl:i+1,name:L[i].n, pct: Math.min(100,Math.round((pts-prev)/(L[i].mx-prev)*100)||0)};
+  }
+  return {lvl:5,name:'Elite',pct:100};
+}
+
+// TDEE calc (Mifflin-St Jeor)
+function calcTDEE(w) {
+  const {age, height} = S.profile;
+  const bmr = 10*w + 6.25*height - 5*age + 5; // male
+  return Math.round(bmr * 1.55); // moderate activity
+}
+function calcBMI(w) { return (w / ((S.profile.height/100)**2)).toFixed(1); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Today'];
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const PAGE_META = {
+  dashboard: ['Dashboard','Your daily overview'],
+  tasks:     ['Tasks','Voice-powered AI task manager'],
+  habits:    ['Habits','Daily habit tracker'],
+  sleep:     ['Sleep & Recovery','Track your rest'],
+  nutrition: ['Nutrition','Calories, macros & weight'],
+  exercise:  ['Exercise','Workouts & calories burned'],
+  patterns:  ['Patterns','Productivity intelligence'],
+};
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_META[name][0];
+  document.getElementById('page-sub').textContent   = PAGE_META[name][1];
+  // Render on demand
+  const renders = {
+    dashboard: renderDashboard,
+    tasks: renderTasks,
+    habits: renderHabits,
+    sleep: renderSleep,
+    nutrition: renderNutrition,
+    exercise: renderExercise,
+    patterns: renderPatterns,
+  };
+  if(renders[name]) renders[name]();
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+function updateSidebar() {
+  const pts = totalPts();
+  const li = levelInfo(pts);
+  document.getElementById('sb-level').textContent = `Level ${li.lvl} · ${li.name}`;
+  document.getElementById('sb-pts').textContent   = `${pts} pts today`;
+  document.getElementById('sb-bar').style.width   = li.pct+'%';
+  document.getElementById('sb-date').textContent  = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+let dashWeekChartInst = null;
+function renderDashboard() {
+  const pts = totalPts(); const mx = maxPts();
+  const lastSleep = S.sleepLog[6] || S.sleepLog[5];
+  const todayKcal = S.foodLog.filter(f=>f.date===dateStr(0)).reduce((a,f)=>a+f.kcal,0);
+  const todayBurned = S.exerciseLog.filter(e=>e.date===dateStr(0)).reduce((a,e)=>a+e.burned,0);
+  const li = levelInfo(pts);
+
+  document.getElementById('dash-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Points today</div><div class="metric-val metric-accent">${pts}</div><div class="metric-sub">/${mx} max · Level ${li.lvl}</div></div>
+    <div class="metric"><div class="metric-label">Habits done</div><div class="metric-val metric-green">${S.habits.filter(h=>h.done).length}/${S.habits.length}</div><div class="metric-sub">${pct(S.habits.filter(h=>h.done).length,S.habits.length)}% complete</div></div>
+    <div class="metric"><div class="metric-label">Sleep quality</div><div class="metric-val ${lastSleep&&lastSleep.quality>=7?'metric-green':'metric-amber'}">${lastSleep?lastSleep.quality+'/10':'—'}</div><div class="metric-sub">${lastSleep?lastSleep.dur+'h last night':'Not logged'}</div></div>
+    <div class="metric"><div class="metric-label">Calories today</div><div class="metric-val">${todayKcal}</div><div class="metric-sub">Burned: ${todayBurned} kcal</div></div>
+  `;
+
+  // Mini habits
+  const mh = document.getElementById('dash-habits-mini'); mh.innerHTML='';
+  S.habits.slice(0,6).forEach(h=>{
+    mh.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--c-border)">
+      <span style="font-size:16px;width:22px;text-align:center">${h.emoji}</span>
+      <span style="flex:1;font-size:13px">${h.name}</span>
+      <span style="font-size:12px;color:var(--c-text3)">${Math.round(h.pts*streakMult(h.streak))} pts</span>
+      <span style="width:20px;height:20px;border-radius:50%;background:${h.done?'var(--c-green)':'var(--c-surface3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${h.done?'✓':''}</span>
+    </div>`;
+  });
+
+  // Week chart
+  S.weekScores[6] = pts;
+  if(dashWeekChartInst) dashWeekChartInst.destroy();
+  dashWeekChartInst = new Chart(document.getElementById('dashWeekChart'),{
+    type:'bar',
+    data:{labels:DAYS,datasets:[{data:S.weekScores,backgroundColor:S.weekScores.map((_,i)=>i===6?'#7c6cfa':'rgba(124,108,250,0.35)'),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#9090a8',font:{size:10}}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+
+  // Nutrition summary
+  const tdee = calcTDEE(S.profile.weight);
+  const netCal = todayKcal - todayBurned;
+  const diff = netCal - tdee;
+  document.getElementById('dash-nutrition').innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px">
+      <span style="color:var(--c-text2)">Intake</span><span style="font-weight:600">${todayKcal} kcal</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px">
+      <span style="color:var(--c-text2)">Burned</span><span style="font-weight:600;color:var(--c-amber)">${todayBurned} kcal</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px">
+      <span style="color:var(--c-text2)">TDEE target</span><span style="font-weight:600">${tdee} kcal</span>
+    </div>
+    <div class="pbar-bg"><div class="pbar-fill" style="width:${Math.min(100,Math.round(netCal/tdee*100))}%;background:${diff>200?'var(--c-green)':diff<-200?'var(--c-red)':'var(--c-amber)'}"></div></div>
+    <div style="font-size:12px;color:var(--c-text3);margin-top:6px">${diff>0?'+':''}${diff} kcal vs target (${S.weightGoalType==='gain'?'bulking':'cutting/maintaining'})</div>
+  `;
+
+  // Sleep summary
+  document.getElementById('dash-sleep').innerHTML = lastSleep ? `
+    <div style="display:flex;gap:var(--sp-lg);align-items:center">
+      <div class="sleep-quality-ring" style="border-color:${lastSleep.quality>=7?'var(--c-green)':lastSleep.quality>=5?'var(--c-amber)':'var(--c-red)'};color:${lastSleep.quality>=7?'var(--c-green)':lastSleep.quality>=5?'var(--c-amber)':'var(--c-red)'}">
+        <div style="font-size:22px;font-weight:800;font-family:var(--f-display)">${lastSleep.quality}</div>
+        <div style="font-size:10px;color:var(--c-text3)">/10</div>
+      </div>
+      <div>
+        <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--c-text2)">Duration</span> <strong>${lastSleep.dur}h</strong></div>
+        <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--c-text2)">Bed</span> <strong>${lastSleep.bed}</strong> → <strong>${lastSleep.wake}</strong></div>
+        <div style="font-size:12px;color:${lastSleep.dur>=7?'var(--c-green)':'var(--c-amber)'}">${lastSleep.dur>=7?'✓ Optimal sleep':'⚠ Below target — aim for 7h+'}</div>
+      </div>
+    </div>
+  ` : '<div style="font-size:13px;color:var(--c-text3)">No sleep logged yet — go to Sleep tab</div>';
+
+  // Insights
+  genDashInsights();
+  updateSidebar();
+}
+
+function genDashInsights() {
+  const el = document.getElementById('dash-insights'); el.innerHTML='';
+  const pts = totalPts(); const mx = maxPts(); const p = pct(pts,mx);
+  const lastSleep = S.sleepLog[6] || S.sleepLog[5];
+  const todayKcal = S.foodLog.filter(f=>f.date===dateStr(0)).reduce((a,f)=>a+f.kcal,0);
+  const todayBurned = S.exerciseLog.filter(e=>e.date===dateStr(0)).reduce((a,e)=>a+e.burned,0);
+  const tdee = calcTDEE(S.profile.weight);
+  const netCal = todayKcal - todayBurned;
+
+  if(p>=70) el.innerHTML += `<div class="insight good">You're at ${p}% of your habit score today — strong performance. Keep the momentum through the evening.</div>`;
+  else if(p>=40) el.innerHTML += `<div class="insight warn">You're at ${p}% today. A few uncompleted habits can still push you into the strong zone.</div>`;
+  else el.innerHTML += `<div class="insight bad">Only ${p}% today — even completing 2-3 more habits will shift your trajectory significantly.</div>`;
+
+  if(lastSleep) {
+    if(lastSleep.quality>=8) el.innerHTML += `<div class="insight good">Quality sleep (${lastSleep.quality}/10) last night. Your habits score tends to be higher on days after good sleep — use this energy.</div>`;
+    else if(lastSleep.quality<6) el.innerHTML += `<div class="insight bad">Low sleep quality (${lastSleep.quality}/10) detected. Expect reduced focus — prioritise high-value habits first and recover tonight.</div>`;
+  }
+
+  if(S.weightGoalType==='gain' && netCal < tdee-200) el.innerHTML += `<div class="insight warn">You're ${tdee-netCal} kcal under your bulk target. Add a protein-rich meal to stay on your weight-gain track.</div>`;
+  if(S.weightGoalType==='gain' && netCal >= tdee+100) el.innerHTML += `<div class="insight good">Calorie surplus of ${netCal-tdee} kcal — on track for your weight gain goal. Make sure protein is adequate.</div>`;
+
+  const highStreak = S.habits.filter(h=>h.streak>=7);
+  if(highStreak.length>0) el.innerHTML += `<div class="insight good">${highStreak.length} habit(s) on 7+ day streaks. Streak multipliers are adding ${highStreak.reduce((a,h)=>a+Math.round(h.pts*(streakMult(h.streak)-1)),0)} bonus pts daily.</div>`;
+
+  if(!el.innerHTML) el.innerHTML = '<div class="insight">Complete more habits and log your data to unlock personalised insights.</div>';
+}
+
+/* ============================================================
+   VOICE + TASKS
+   ============================================================ */
+let recognition = null;
+let voiceBuffer = '';
+let taskFilter = 'all';
+
+const CAT_ICONS = {study:'📚',fitness:'💪',personal:'🌟',language:'🗣',health:'🏥',other:'📋'};
+
+function toggleVoice() {
+  const btn = document.getElementById('voice-btn');
+  const trans = document.getElementById('voice-transcript');
+  const aiBox = document.getElementById('ai-analysis-box');
+
+  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    trans.textContent = '⚠ Speech recognition not supported in this browser. Try Chrome.'; return;
+  }
+  if(recognition) {
+    recognition.stop(); recognition=null;
+    btn.classList.remove('listening');
+    trans.textContent = 'Tap the mic and speak your task. AI will analyse and categorise it automatically.';
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 3;
+
+  recognition.onstart = () => { btn.classList.add('listening'); trans.textContent = '🎙 Listening — speak clearly…'; voiceBuffer=''; };
+
+  recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for(let i=e.resultIndex;i<e.results.length;i++) {
+      if(e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if(final) voiceBuffer += final + ' ';
+    trans.textContent = (voiceBuffer + interim).trim() || 'Still listening…';
+  };
+
+  recognition.onend = () => {
+    btn.classList.remove('listening'); recognition=null;
+    const text = voiceBuffer.trim();
+    if(text) {
+      document.getElementById('task-input-text') && (document.getElementById('task-text-input').value = text);
+      trans.textContent = '"' + text + '"';
+      analyseTaskWithAI(text);
+    } else trans.textContent = 'Nothing captured — tap mic to try again.';
+  };
+  recognition.onerror = (e) => {
+    btn.classList.remove('listening'); recognition=null;
+    trans.textContent = 'Error: ' + e.error + '. Tap to retry.';
+  };
+  recognition.start();
+}
+
+function analyseTaskWithAI(text) {
+  const aiBox = document.getElementById('ai-analysis-box');
+  const aiText = document.getElementById('ai-analysis-text');
+  aiBox.style.display = 'block';
+  aiText.textContent = '…analysing…';
+
+  // Smart local AI analysis
+  const t = text.toLowerCase();
+  let cat = 'other', priority = 'med', time = 30, note = '';
+
+  // Category detection
+  if(/gym|workout|exercise|run|football|weight|press|squat|deadlift|bench|lift|training|cardio|hiit/i.test(t)) cat='fitness';
+  else if(/study|learn|read|lecture|book|notes|assignment|exam|test|chapter|course|class/i.test(t)) cat='study';
+  else if(/arabic|language|vocab|grammar|duolingo|practice|translate|speak|french|spanish/i.test(t)) cat='language';
+  else if(/doctor|medicine|appointment|health|skin|sleep|diet|protein|water|vitamin/i.test(t)) cat='health';
+  else if(/meet|call|buy|get|pick|visit|friend|family|phone|message/i.test(t)) cat='personal';
+
+  // Priority detection
+  if(/urgent|asap|immediately|today|deadline|important|critical|must|need to/i.test(t)) priority='high';
+  else if(/later|when|eventually|maybe|could|might/i.test(t)) priority='low';
+
+  // Time estimate
+  if(/quick|quickly|fast|5 min|10 min/i.test(t)) time=10;
+  else if(/1 hour|60 min|long/i.test(t)) time=60;
+  else if(/2 hour|120 min/i.test(t)) time=120;
+  else if(/workout|session|training/i.test(t)) time=60;
+  else if(/read|study|lecture/i.test(t)) time=45;
+
+  // AI note
+  if(cat==='fitness') note = `Fitness task detected. Tag with today's exercise log for calorie tracking.`;
+  else if(cat==='study') note = `Learning task — consider blocking a focused session.`;
+  else if(cat==='language') note = `Arabic study — 20–30 mins of consistent daily practice beats long sessions.`;
+  else if(priority==='high') note = `High-urgency signals detected — scheduled first in your queue.`;
+  else note = `Task categorised and ready.`;
+
+  document.getElementById('m-task-text').value = text;
+  document.getElementById('m-task-pri').value = priority;
+  document.getElementById('m-task-cat').value = cat;
+  document.getElementById('m-task-time').value = time;
+
+  aiText.innerHTML = `<strong>${CAT_ICONS[cat]} ${cat.charAt(0).toUpperCase()+cat.slice(1)}</strong> · Priority: <strong>${priority}</strong> · Est. <strong>${time} mins</strong><br><span style="color:var(--c-text3)">${note}</span>`;
+}
+
+function openTaskModal() {
+  const v = document.getElementById('task-text-input').value.trim();
+  if(v) { document.getElementById('m-task-text').value = v; analyseTaskWithAI(v); }
+  openModal('taskModal');
+}
+
+function saveModalTask() {
+  const text = document.getElementById('m-task-text').value.trim();
+  if(!text) { toast('Task text is required'); return; }
+  S.tasks.push({
+    id: Date.now(), text, date: dateStr(0),
+    priority: document.getElementById('m-task-pri').value,
+    due: document.getElementById('m-task-due').value,
+    cat: document.getElementById('m-task-cat').value,
+    time: parseInt(document.getElementById('m-task-time').value)||30,
+    notes: document.getElementById('m-task-notes').value,
+    done: false,
+    aiNote: document.getElementById('ai-analysis-text').textContent.split('\n')[1]||'',
+  });
+  ['m-task-text','m-task-due','m-task-time','m-task-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('task-text-input').value='';
+  document.getElementById('ai-analysis-box').style.display='none';
+  save(); closeModal('taskModal'); renderTasks(); toast('Task added ✓');
+}
+
+function quickAddTask() {
+  const text = document.getElementById('task-text-input').value.trim();
+  if(!text) return;
+  S.tasks.push({id:Date.now(),text,date:dateStr(0),priority:'med',cat:'other',time:30,done:false,notes:'',due:'',aiNote:''});
+  document.getElementById('task-text-input').value='';
+  save(); renderTasks(); toast('Task added');
+}
+
+function filterTasks(f) { taskFilter=f; renderTasks(); }
+
+function renderTasks() {
+  const el = document.getElementById('task-list'); el.innerHTML='';
+  let list = [...S.tasks];
+  if(taskFilter==='high') list=list.filter(t=>t.priority==='high');
+  if(taskFilter==='pending') list=list.filter(t=>!t.done);
+  list.sort((a,b)=>({high:0,med:1,low:2}[a.priority]-{high:0,med:1,low:2}[b.priority]));
+  if(!list.length){el.innerHTML='<div style="font-size:13px;color:var(--c-text3);text-align:center;padding:var(--sp-lg)">No tasks yet — speak or type one above</div>';return;}
+  list.forEach(t=>{
+    const row = document.createElement('div'); row.className='task-row';
+    row.innerHTML=`
+      <div class="task-check ${t.done?'done':''}" onclick="toggleTask(${t.id})">${t.done?'✓':''}</div>
+      <div class="task-body">
+        <div class="task-text ${t.done?'done':''}">${CAT_ICONS[t.cat]||'📋'} ${t.text}</div>
+        ${t.aiNote?`<div class="task-ai-note">✦ ${t.aiNote}</div>`:''}
+        <div class="task-meta-row">
+          <span class="badge badge-${t.priority}">${t.priority}</span>
+          ${t.due?`<span class="task-due">Due ${t.due}</span>`:''}
+          ${t.time?`<span class="task-due">~${t.time} min</span>`:''}
+          ${t.notes?`<span class="task-due" title="${t.notes}">📝 note</span>`:''}
+        </div>
+      </div>
+      <button onclick="deleteTask(${t.id})" style="background:none;border:none;color:var(--c-text3);font-size:16px;padding:4px;flex-shrink:0" title="Delete">×</button>
+    `;
+    el.appendChild(row);
+  });
+}
+function toggleTask(id){const t=S.tasks.find(t=>t.id===id);if(t){t.done=!t.done;save();renderTasks();}}
+function deleteTask(id){S.tasks=S.tasks.filter(t=>t.id!==id);save();renderTasks();}
+
+/* ============================================================
+   HABITS
+   ============================================================ */
+function renderHabits() {
+  const done=S.habits.filter(h=>h.done).length;const pts=totalPts();const mx=maxPts();
+  const best=Math.max(...S.habits.map(h=>h.streak));
+  document.getElementById('habit-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Done</div><div class="metric-val metric-green">${done}/${S.habits.length}</div></div>
+    <div class="metric"><div class="metric-label">Points</div><div class="metric-val metric-accent">${pts}</div></div>
+    <div class="metric"><div class="metric-label">Score</div><div class="metric-val">${pct(pts,mx)}%</div></div>
+    <div class="metric"><div class="metric-label">Best streak</div><div class="metric-val metric-amber">${best}d</div></div>`;
+  const el=document.getElementById('habit-list');el.innerHTML='';
+  S.habits.forEach(h=>{
+    const eff=Math.round(h.pts*streakMult(h.streak));
+    const row=document.createElement('div');row.className='habit-item';
+    row.innerHTML=`
+      <span class="habit-emoji">${h.emoji||'⭐'}</span>
+      <div class="habit-info">
+        <div class="habit-name">${h.name}${h.streak>=3?`<span class="streak-pill">🔥 ${h.streak}d ×${streakMult(h.streak).toFixed(1)}</span>`:''}</div>
+        <div class="habit-pts-row">
+          <span class="habit-pts-text">${h.pts} base → ${eff} pts${h.done?' earned':''}</span>
+        </div>
+        ${h.streak>0?`<div class="pbar-bg" style="margin-top:5px"><div class="pbar-fill" style="width:${Math.min(h.streak/14*100,100).toFixed(0)}%;background:var(--c-amber)"></div></div>`:''}
+      </div>
+      <button class="habit-remove" onclick="removeHabit(${h.id})">×</button>
+      <button class="habit-toggle ${h.done?'done':''}" onclick="toggleHabit(${h.id})">${h.done?'✓':''}</button>
+    `;
+    el.appendChild(row);
+  });
+  updateSidebar();
+}
+function toggleHabit(id){const h=S.habits.find(h=>h.id===id);if(!h)return;h.done=!h.done;if(h.done)h.streak=(h.streak||0)+1;else h.streak=Math.max(0,(h.streak||1)-1);save();renderHabits();}
+function removeHabit(id){if(!confirm('Remove this habit?'))return;S.habits=S.habits.filter(h=>h.id!==id);save();renderHabits();}
+function addHabit(){
+  const n=document.getElementById('h-name').value.trim();
+  const p=parseInt(document.getElementById('h-pts').value)||5;
+  const e=document.getElementById('h-emoji').value.trim()||'⭐';
+  if(!n)return;
+  S.habits.push({id:Date.now(),name:n,pts:p,streak:0,done:false,emoji:e});
+  ['h-name','h-pts','h-emoji'].forEach(id=>document.getElementById(id).value='');
+  save();renderHabits();toast('Habit added');
+}
+
+/* ============================================================
+   SLEEP
+   ============================================================ */
+let sleepChartInst=null, recovChartInst=null;
+function timeDiff(bed,wake){const[bh,bm]=bed.split(':').map(Number);const[wh,wm]=wake.split(':').map(Number);let d=(wh*60+wm)-(bh*60+bm);if(d<0)d+=1440;return Math.round(d/60*10)/10;}
+function logSleep(){
+  const bed=document.getElementById('sl-bed').value;
+  const wake=document.getElementById('sl-wake').value;
+  const q=Math.min(10,Math.max(1,parseInt(document.getElementById('sl-quality').value)||7));
+  const dur=timeDiff(bed,wake);
+  S.sleepLog[6]={bed,wake,quality:q,dur};
+  save();renderSleep();toast('Sleep logged ✓');
+}
+function renderSleep(){
+  const valid=S.sleepLog.filter(Boolean);
+  const avgDur=valid.length?(valid.reduce((a,d)=>a+d.dur,0)/valid.length).toFixed(1):0;
+  const avgQ=valid.length?(valid.reduce((a,d)=>a+d.quality,0)/valid.length).toFixed(1):0;
+  const best=Math.max(...S.sleepLog.map(d=>d?d.dur:0));
+  document.getElementById('sleep-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Avg duration</div><div class="metric-val ${avgDur>=7?'metric-green':'metric-amber'}">${avgDur}h</div><div class="metric-sub">Target: 7–8h</div></div>
+    <div class="metric"><div class="metric-label">Avg quality</div><div class="metric-val">${avgQ}/10</div><div class="metric-sub">Feel on waking</div></div>
+    <div class="metric"><div class="metric-label">Best night</div><div class="metric-val metric-green">${best}h</div><div class="metric-sub">this week</div></div>`;
+  const durs=S.sleepLog.map(d=>d?d.dur:0);
+  const quals=S.sleepLog.map(d=>d?d.quality:0);
+  if(sleepChartInst)sleepChartInst.destroy();
+  sleepChartInst=new Chart(document.getElementById('sleepDurChart'),{
+    type:'bar',data:{labels:DAYS,datasets:[{data:durs,backgroundColor:durs.map(d=>d>=7&&d<=9?'#2ecc8f':d>=6?'#f5a623':'#ff5c5c'),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:12,ticks:{color:'#9090a8',font:{size:10},callback:v=>v+'h'},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+  if(recovChartInst)recovChartInst.destroy();
+  recovChartInst=new Chart(document.getElementById('sleepRecovChart'),{
+    type:'line',
+    data:{labels:DAYS,datasets:[
+      {label:'Sleep quality',data:quals,borderColor:'#7c6cfa',backgroundColor:'rgba(124,108,250,0.08)',tension:0.4,fill:true,pointRadius:4,pointBackgroundColor:'#7c6cfa'},
+      {label:'Habit score %',data:S.weekScores.map(v=>Math.round(v/Math.max(maxPts(),1)*10)),borderColor:'#2ecc8f',tension:0.4,fill:false,pointRadius:4,pointBackgroundColor:'#2ecc8f',borderDash:[4,3]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:10,ticks:{color:'#9090a8',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+  const ins=document.getElementById('sleep-insights');ins.innerHTML='';
+  const lateBed=valid.filter(d=>{const h=parseInt(d.bed.split(':')[0]);return h>=1||h===0;});
+  const lowSleep=valid.filter(d=>d.dur<6.5);
+  const highQ=valid.filter(d=>d.quality>=8&&d.dur>=7);
+  if(highQ.length>=2)ins.innerHTML+=`<div class="insight good">On nights with 7+ hrs your recovery averages ${(highQ.reduce((a,d)=>a+d.quality,0)/highQ.length).toFixed(1)}/10 — protect this pattern.</div>`;
+  if(lowSleep.length>=2)ins.innerHTML+=`<div class="insight bad">${lowSleep.length} nights under 6.5h this week. Chronic sleep restriction is reducing your cognitive output and muscle recovery.</div>`;
+  if(lateBed.length>=1)ins.innerHTML+=`<div class="insight warn">Late bedtimes (after midnight) on ${lateBed.length} night(s). Shifting to 10:30–11 PM will improve your wake quality significantly.</div>`;
+  if(!ins.innerHTML)ins.innerHTML='<div class="insight">Log a few more nights to unlock sleep pattern insights.</div>';
+}
+
+/* ============================================================
+   NUTRITION
+   ============================================================ */
+let weightChartInst=null, calChartInst=null;
+
+function calcWeightChange() {
+  const logs = S.weightLog.filter(Boolean);
+  if(logs.length<2) return 0;
+  return (logs[logs.length-1].w - logs[0].w).toFixed(2);
+}
+
+function logFood(){
+  const name=document.getElementById('food-name').value.trim();
+  const kcal=parseInt(document.getElementById('food-kcal').value)||0;
+  const protein=parseInt(document.getElementById('food-protein').value)||0;
+  const carbs=parseInt(document.getElementById('food-carbs').value)||0;
+  const fat=parseInt(document.getElementById('food-fat').value)||0;
+  if(!name||!kcal)return;
+  S.foodLog.push({id:Date.now(),name,kcal,protein,carbs,fat,date:dateStr(0)});
+  S.weekCaloriesIn[6]=(S.weekCaloriesIn[6]||0)+kcal;
+  ['food-name','food-kcal','food-protein','food-carbs','food-fat'].forEach(id=>document.getElementById(id).value='');
+  save();renderNutrition();toast('Food logged');
+}
+function logWeight(){
+  const w=parseFloat(document.getElementById('weight-input').value);
+  if(!w||w<20||w>300)return;
+  const existing=S.weightLog.findIndex(l=>l.date===dateStr(0));
+  if(existing>=0) S.weightLog[existing].w=w;
+  else S.weightLog.push({date:dateStr(0),w});
+  S.profile.weight=w;
+  document.getElementById('weight-input').value='';
+  save();renderNutrition();toast('Weight logged');
+}
+function setWeightGoal(){
+  S.weightGoal=parseFloat(document.getElementById('weight-goal').value)||S.weightGoal;
+  S.weightGoalType=document.getElementById('weight-goal-type').value;
+  save();renderNutrition();toast('Goal set');
+}
+
+function renderNutrition(){
+  const todayFood=S.foodLog.filter(f=>f.date===dateStr(0));
+  const todayKcal=todayFood.reduce((a,f)=>a+f.kcal,0);
+  const todayProtein=todayFood.reduce((a,f)=>a+(f.protein||0),0);
+  const todayCarbs=todayFood.reduce((a,f)=>a+(f.carbs||0),0);
+  const todayFat=todayFood.reduce((a,f)=>a+(f.fat||0),0);
+  const w=S.profile.weight;
+  const tdee=calcTDEE(w);
+  const bmi=calcBMI(w);
+  const wtChange=calcWeightChange();
+
+  document.getElementById('current-weight-display').textContent=w+' kg';
+  document.getElementById('bmi-display').textContent=bmi;
+  document.getElementById('tdee-display').textContent=tdee;
+
+  const target=S.weightGoalType==='gain'?tdee+400:S.weightGoalType==='lose'?tdee-300:tdee;
+  const wtToGoal=(S.weightGoal-w).toFixed(1);
+  document.getElementById('nut-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Calories today</div><div class="metric-val ${todayKcal>=target*0.9?'metric-green':'metric-amber'}">${todayKcal}</div><div class="metric-sub">Target: ${target}</div></div>
+    <div class="metric"><div class="metric-label">Protein today</div><div class="metric-val">${todayProtein}g</div><div class="metric-sub">Target: ~${Math.round(w*2)}g</div></div>
+    <div class="metric"><div class="metric-label">Weight change</div><div class="metric-val ${parseFloat(wtChange)>0?'metric-green':parseFloat(wtChange)<0?'metric-red':'metric-amber'}">${wtChange>0?'+':''}${wtChange}kg</div><div class="metric-sub">This week</div></div>
+    <div class="metric"><div class="metric-label">To goal</div><div class="metric-val metric-accent">${Math.abs(wtToGoal)}kg</div><div class="metric-sub">${parseFloat(wtToGoal)>0?'to gain':'to lose'} (${S.weightGoal}kg target)</div></div>`;
+
+  // Food list
+  const fl=document.getElementById('food-list');fl.innerHTML='';
+  if(!todayFood.length){fl.innerHTML='<div style="font-size:12px;color:var(--c-text3);padding:8px 0">No food logged today</div>';
+  } else {
+    todayFood.forEach(f=>{
+      fl.innerHTML+=`<div class="food-row">
+        <span style="flex:1">${f.name}</span>
+        <span style="color:var(--c-text2)">${f.protein||0}p / ${f.carbs||0}c / ${f.fat||0}f</span>
+        <span style="font-weight:600;min-width:60px;text-align:right">${f.kcal} kcal</span>
+        <button onclick="removeFood(${f.id})" style="background:none;border:none;color:var(--c-text3);font-size:14px;cursor:pointer">×</button>
+      </div>`;
+    });
+  }
+
+  // Weight chart
+  const wlabels=S.weightLog.map(l=>l.date.slice(5));
+  const wdata=S.weightLog.map(l=>l.w);
+  const goalLine=Array(wdata.length).fill(S.weightGoal);
+  if(weightChartInst)weightChartInst.destroy();
+  weightChartInst=new Chart(document.getElementById('weightChart'),{
+    type:'line',
+    data:{labels:wlabels,datasets:[
+      {label:'Weight',data:wdata,borderColor:'#7c6cfa',backgroundColor:'rgba(124,108,250,0.1)',tension:0.4,fill:true,pointRadius:5,pointBackgroundColor:'#7c6cfa'},
+      {label:'Goal',data:goalLine,borderColor:'#2ecc8f',borderDash:[5,5],tension:0,fill:false,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#9090a8',font:{size:10},callback:v=>v+'kg'},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+
+  // Calorie balance chart
+  if(calChartInst)calChartInst.destroy();
+  calChartInst=new Chart(document.getElementById('calChart'),{
+    type:'bar',
+    data:{labels:DAYS,datasets:[
+      {label:'Intake',data:S.weekCaloriesIn,backgroundColor:'rgba(124,108,250,0.6)',borderRadius:4},
+      {label:'Target',data:Array(7).fill(target),backgroundColor:'transparent',borderColor:'#2ecc8f',borderWidth:1.5,type:'line',pointRadius:0,fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,min:Math.max(0,Math.min(...S.weekCaloriesIn.filter(Boolean))-300),ticks:{color:'#9090a8',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+
+  // Insights
+  const ni=document.getElementById('nut-insights');ni.innerHTML='';
+  if(todayProtein<w*1.6)ni.innerHTML+=`<div class="insight warn">Protein at ${todayProtein}g — you need ~${Math.round(w*2)}g/day for muscle gain. Add a protein source to remaining meals.</div>`;
+  if(S.weightGoalType==='gain'&&parseFloat(wtChange)<0)ni.innerHTML+=`<div class="insight bad">Weight dropped ${Math.abs(wtChange)}kg this week despite a gain goal. Increase daily calories by ~300 kcal.</div>`;
+  if(S.weightGoalType==='gain'&&parseFloat(wtChange)>0)ni.innerHTML+=`<div class="insight good">Gained ${wtChange}kg this week — on track! At 48–49kg you have excellent room to build lean mass.</div>`;
+  if(parseFloat(bmi)<18.5)ni.innerHTML+=`<div class="insight warn">BMI ${bmi} is underweight. A slow bulk of 0.25–0.5kg/week with adequate protein (${Math.round(w*2)}g) is ideal at your age.</div>`;
+  if(!ni.innerHTML)ni.innerHTML='<div class="insight">Keep logging food and weight to unlock nutrition insights.</div>';
+}
+function removeFood(id){S.foodLog=S.foodLog.filter(f=>f.id!==id);save();renderNutrition();}
+
+/* ============================================================
+   EXERCISE
+   ============================================================ */
+let exCalChartInst=null, netCalChartInst=null;
+
+// MET-based calorie burn estimator
+const EX_MET = {gym:6,football:8,run:9,cycle:7,swim:8,hiit:9,yoga:3,walk:3.5,other:5};
+function calcBurn(type,mins,intensity,weight){
+  const met=EX_MET[type]||5;
+  const intensityFactor=0.7+(intensity/10)*0.6;
+  return Math.round(met*intensityFactor*(weight/60)*(mins/60)*1000)/10;
+}
+
+function logExercise(){
+  const type=document.getElementById('ex-type').value;
+  const mins=parseInt(document.getElementById('ex-duration').value)||30;
+  const intensity=Math.min(10,Math.max(1,parseInt(document.getElementById('ex-intensity').value)||5));
+  const name=document.getElementById('ex-name').value.trim() || document.getElementById('ex-type').options[document.getElementById('ex-type').selectedIndex].text.replace(/\S+\s/,'');
+  const burned=calcBurn(type,mins,intensity,S.profile.weight);
+  S.exerciseLog.push({id:Date.now(),type,name,mins,intensity,burned,date:dateStr(0)});
+  S.weekCaloriesOut[6]=(S.weekCaloriesOut[6]||0)+burned;
+  document.getElementById('ex-duration').value='';document.getElementById('ex-intensity').value='';document.getElementById('ex-name').value='';
+  save();renderExercise();toast(`Logged! ~${burned} kcal burned`);
+}
+
+function renderExercise(){
+  const todayEx=S.exerciseLog.filter(e=>e.date===dateStr(0));
+  const todayBurned=todayEx.reduce((a,e)=>a+e.burned,0);
+  const todayMins=todayEx.reduce((a,e)=>a+e.mins,0);
+  const weekBurned=S.weekCaloriesOut.reduce((a,b)=>a+b,0);
+  document.getElementById('ex-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Burned today</div><div class="metric-val metric-amber">${Math.round(todayBurned)}</div><div class="metric-sub">kcal</div></div>
+    <div class="metric"><div class="metric-label">Active time</div><div class="metric-val">${todayMins}</div><div class="metric-sub">mins today</div></div>
+    <div class="metric"><div class="metric-label">This week</div><div class="metric-val metric-green">${Math.round(weekBurned)}</div><div class="metric-sub">kcal burned total</div></div>`;
+
+  const el=document.getElementById('ex-list');el.innerHTML='';
+  if(!todayEx.length){el.innerHTML='<div style="font-size:13px;color:var(--c-text3);padding:8px 0">No exercise logged today</div>';}
+  else{
+    todayEx.forEach(e=>{
+      el.innerHTML+=`<div class="ex-row">
+        <span style="font-size:18px;width:28px">${{gym:'💪',football:'⚽',run:'🏃',cycle:'🚴',swim:'🏊',hiit:'🔥',yoga:'🧘',walk:'🚶'}[e.type]||'🏋'}</span>
+        <span style="flex:1">${e.name}</span>
+        <span style="color:var(--c-text2)">${e.mins} min · intensity ${e.intensity}/10</span>
+        <span style="font-weight:600;color:var(--c-amber);min-width:80px;text-align:right">~${Math.round(e.burned)} kcal</span>
+        <button onclick="removeEx(${e.id})" style="background:none;border:none;color:var(--c-text3);font-size:14px;cursor:pointer">×</button>
+      </div>`;
+    });
+  }
+
+  if(exCalChartInst)exCalChartInst.destroy();
+  exCalChartInst=new Chart(document.getElementById('exCalChart'),{
+    type:'bar',
+    data:{labels:DAYS,datasets:[{label:'Calories burned',data:S.weekCaloriesOut,backgroundColor:S.weekCaloriesOut.map((_,i)=>i===6?'#f5a623':'rgba(245,166,35,0.4)'),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{color:'#9090a8',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+
+  const netCals=S.weekCaloriesIn.map((v,i)=>v-(S.weekCaloriesOut[i]||0));
+  const tdee=calcTDEE(S.profile.weight);
+  const targetCalLine=Array(7).fill(S.weightGoalType==='gain'?tdee+400:S.weightGoalType==='lose'?tdee-300:tdee);
+  if(netCalChartInst)netCalChartInst.destroy();
+  netCalChartInst=new Chart(document.getElementById('netCalChart'),{
+    type:'line',
+    data:{labels:DAYS,datasets:[
+      {label:'Net calories',data:netCals,borderColor:'#7c6cfa',backgroundColor:'rgba(124,108,250,0.08)',tension:0.4,fill:true,pointRadius:4,pointBackgroundColor:'#7c6cfa'},
+      {label:'Target',data:targetCalLine,borderColor:'#2ecc8f',borderDash:[5,5],tension:0,fill:false,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{color:'#9090a8',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+}
+function removeEx(id){S.exerciseLog=S.exerciseLog.filter(e=>e.id!==id);save();renderExercise();}
+
+/* ============================================================
+   PATTERNS
+   ============================================================ */
+let patChartInst=null;
+function renderPatterns(){
+  const pts=totalPts();const mx=maxPts();
+  const avgSleepQ=S.sleepLog.filter(Boolean).length?(S.sleepLog.filter(Boolean).reduce((a,d)=>a+d.quality,0)/S.sleepLog.filter(Boolean).length).toFixed(1):0;
+  const wtChange=calcWeightChange();
+  const taskDone=S.tasks.filter(t=>t.done).length;
+  const wtChangeNum=parseFloat(wtChange);
+
+  document.getElementById('pat-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Habit score</div><div class="metric-val metric-accent">${pct(pts,mx)}%</div></div>
+    <div class="metric"><div class="metric-label">Sleep quality avg</div><div class="metric-val">${avgSleepQ}/10</div></div>
+    <div class="metric"><div class="metric-label">Weight change</div><div class="metric-val ${wtChangeNum>0?'metric-green':'metric-amber'}">${wtChangeNum>0?'+':''}${wtChange}kg</div></div>
+    <div class="metric"><div class="metric-label">Tasks done</div><div class="metric-val">${taskDone}</div></div>`;
+
+  const quals=S.sleepLog.map(d=>d?d.quality*10:0);
+  const calScore=S.weekCaloriesIn.map((v,i)=>{const t=calcTDEE(S.profile.weight);const diff=Math.abs(v-t);return Math.max(0,100-Math.round(diff/t*100));});
+  const exScore=S.weekCaloriesOut.map(v=>Math.min(100,Math.round(v/400*100)));
+
+  if(patChartInst)patChartInst.destroy();
+  patChartInst=new Chart(document.getElementById('patternChart'),{
+    type:'line',
+    data:{labels:DAYS,datasets:[
+      {label:'Habits',data:S.weekScores.map(v=>Math.round(v/Math.max(mx,1)*100)),borderColor:'#7c6cfa',tension:0.4,fill:false,pointRadius:4,pointBackgroundColor:'#7c6cfa'},
+      {label:'Sleep recovery',data:quals,borderColor:'#2ecc8f',tension:0.4,fill:false,pointRadius:4,pointBackgroundColor:'#2ecc8f',borderDash:[4,3]},
+      {label:'Nutrition',data:calScore,borderColor:'#f5a623',tension:0.4,fill:false,pointRadius:4,pointBackgroundColor:'#f5a623',borderDash:[2,4]},
+      {label:'Exercise',data:exScore,borderColor:'#5b9cf6',tension:0.4,fill:false,pointRadius:4,pointBackgroundColor:'#5b9cf6',borderDash:[6,2]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{color:'#9090a8',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'}},x:{grid:{display:false},ticks:{color:'#9090a8',font:{size:10}}}}}
+  });
+
+  document.getElementById('pattern-legend').innerHTML=`
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:#7c6cfa;display:inline-block;border-radius:2px"></span>Habits</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:#2ecc8f;display:inline-block;border-radius:2px;opacity:0.6"></span>Sleep</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:#f5a623;display:inline-block;border-radius:2px;opacity:0.6"></span>Nutrition</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:3px;background:#5b9cf6;display:inline-block;border-radius:2px;opacity:0.6"></span>Exercise</span>`;
+
+  const factors=[
+    {name:'Habit consistency',score:pct(pts,mx),color:'#7c6cfa'},
+    {name:'Sleep recovery',score:avgSleepQ?Math.round(avgSleepQ*10):0,color:'#2ecc8f'},
+    {name:'Streak momentum',score:Math.min(100,Math.round(S.habits.reduce((a,h)=>a+h.streak,0)/S.habits.length*10)),color:'#f5a623'},
+    {name:'Task completion',score:S.tasks.length?Math.round(taskDone/S.tasks.length*100):0,color:'#5b9cf6'},
+    {name:'Nutrition accuracy',score:calScore[6]||0,color:'#ff5c5c'},
+    {name:'Exercise output',score:exScore[6]||0,color:'#ff8c00'},
+  ];
+  const fb=document.getElementById('factor-bars');fb.innerHTML='';
+  factors.forEach(f=>{
+    fb.innerHTML+=`<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--c-border);font-size:13px">
+      <span style="flex:0 0 160px">${f.name}</span>
+      <div class="pbar-bg" style="flex:1"><div class="pbar-fill" style="width:${f.score}%;background:${f.color}"></div></div>
+      <span style="font-weight:600;min-width:36px;text-align:right">${f.score}%</span>
+    </div>`;
+  });
+
+  // AI insights
+  const pi=document.getElementById('pat-insights');pi.innerHTML='';
+  if(avgSleepQ>=7&&pct(pts,mx)>=70)pi.innerHTML+=`<div class="insight good">Both sleep (${avgSleepQ}/10) and habits (${pct(pts,mx)}%) are strong. This is your peak performance state — protect the sleep schedule.</div>`;
+  if(parseFloat(avgSleepQ)<6&&pct(pts,mx)<50)pi.innerHTML+=`<div class="insight bad">Low sleep quality is strongly correlated with your lower habit scores. Fix sleep first — it's the highest-leverage intervention.</div>`;
+  if(S.weightGoalType==='gain'&&parseFloat(wtChange)<0)pi.innerHTML+=`<div class="insight warn">Despite a bulk goal, weight trended down. Pair your exercise output with a consistent calorie surplus to see progress.</div>`;
+  const hs=S.habits.filter(h=>h.streak>=7);
+  if(hs.length>=3)pi.innerHTML+=`<div class="insight good">${hs.length} habits on 7+ day streaks — streak multipliers are now adding significant bonus points. This compounds over time.</div>`;
+  const ns=S.habits.filter(h=>h.streak===0);
+  if(ns.length>=3)pi.innerHTML+=`<div class="insight warn">${ns.length} habits have no streak yet. Completing them 3 days in a row unlocks your first 1.2× multiplier.</div>`;
+  if(!pi.innerHTML)pi.innerHTML='<div class="insight">Track habits, sleep, and nutrition for 3+ days to unlock deep pattern insights.</div>';
+}
+
+/* ============================================================
+   REPORT GENERATOR
+   ============================================================ */
+function generateReport(type) {
+  const pts=totalPts();const mx=maxPts();
+  const done=S.habits.filter(h=>h.done).length;
+  const lastSleep=S.sleepLog[6]||S.sleepLog[5]||{dur:0,quality:0};
+  const todayKcal=S.foodLog.filter(f=>f.date===dateStr(0)).reduce((a,f)=>a+f.kcal,0);
+  const todayBurned=S.exerciseLog.filter(e=>e.date===dateStr(0)).reduce((a,e)=>a+e.burned,0);
+  const taskDone=S.tasks.filter(t=>t.done).length;
+  const overallScore=Math.round((pct(pts,mx)*0.35)+(lastSleep.quality*10*0.25)+(Math.min(100,pct(todayKcal,calcTDEE(S.profile.weight)*1.1))*0.2)+(S.tasks.length?pct(taskDone,S.tasks.length)*0.2:20));
+  const grade=overallScore>=85?'S':overallScore>=70?'A':overallScore>=55?'B':overallScore>=40?'C':'D';
+  const gradeColor=overallScore>=85?'#2ecc8f':overallScore>=70?'#7c6cfa':overallScore>=55?'#f5a623':'#ff5c5c';
+
+  const weekAvg=Math.round(S.weekScores.slice(0,6).reduce((a,b)=>a+b,0)/6);
+  const wtChange=calcWeightChange();
+  const wtChangeNum=parseFloat(wtChange);
+  const dayName=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+  let bestHabits=S.habits.filter(h=>h.done).map(h=>h.name).join(', ')||'—';
+  let pendingHabits=S.habits.filter(h=>!h.done).map(h=>h.name).join(', ')||'—';
+
+  const content=`
+    <div class="report-header">
+      <div class="report-score-ring">
+        <div class="report-score-num" style="color:${gradeColor}">${grade}</div>
+        <div style="font-size:12px;color:var(--c-text3)">${overallScore}%</div>
+      </div>
+      <div class="report-title">${type==='daily'?'Daily':'Weekly'} Productivity Report</div>
+      <div style="font-size:13px;color:var(--c-text2);margin-top:6px">${dayName}</div>
+    </div>
+
+    <div class="report-section">
+      <h3>Habits</h3>
+      <div class="report-row"><span>Completed</span><span class="report-val metric-green">${done}/${S.habits.length}</span></div>
+      <div class="report-row"><span>Points earned</span><span class="report-val">${pts} / ${mx} max</span></div>
+      <div class="report-row"><span>Habit score</span><span class="report-val">${pct(pts,mx)}%</span></div>
+      <div class="report-row"><span>Done today</span><span class="report-val" style="font-size:12px;max-width:250px;text-align:right">${bestHabits}</span></div>
+      <div class="report-row"><span>Pending</span><span class="report-val metric-amber" style="font-size:12px;max-width:250px;text-align:right">${pendingHabits}</span></div>
+    </div>
+
+    <div class="report-section">
+      <h3>Sleep & Recovery</h3>
+      <div class="report-row"><span>Duration</span><span class="report-val ${lastSleep.dur>=7?'metric-green':'metric-amber'}">${lastSleep.dur}h</span></div>
+      <div class="report-row"><span>Quality score</span><span class="report-val">${lastSleep.quality}/10</span></div>
+      <div class="report-row"><span>Bedtime</span><span class="report-val">${lastSleep.bed||'—'}</span></div>
+    </div>
+
+    <div class="report-section">
+      <h3>Nutrition</h3>
+      <div class="report-row"><span>Calories in</span><span class="report-val">${todayKcal} kcal</span></div>
+      <div class="report-row"><span>Calories burned</span><span class="report-val metric-amber">${Math.round(todayBurned)} kcal</span></div>
+      <div class="report-row"><span>Net calories</span><span class="report-val">${todayKcal-Math.round(todayBurned)} kcal</span></div>
+      <div class="report-row"><span>TDEE target</span><span class="report-val">${calcTDEE(S.profile.weight)} kcal</span></div>
+      <div class="report-row"><span>Weight</span><span class="report-val">${S.profile.weight} kg</span></div>
+      <div class="report-row"><span>Change this week</span><span class="report-val ${wtChangeNum>0?'metric-green':'metric-amber'}">${wtChangeNum>0?'+':''}${wtChange} kg</span></div>
+    </div>
+
+    <div class="report-section">
+      <h3>Tasks</h3>
+      <div class="report-row"><span>Completed</span><span class="report-val metric-green">${taskDone}</span></div>
+      <div class="report-row"><span>Pending</span><span class="report-val">${S.tasks.filter(t=>!t.done).length}</span></div>
+    </div>
+
+    ${type==='weekly'?`<div class="report-section">
+      <h3>Weekly trend</h3>
+      <div class="report-row"><span>Weekly avg score</span><span class="report-val">${weekAvg} pts</span></div>
+      <div class="report-row"><span>Best day</span><span class="report-val metric-green">${Math.max(...S.weekScores)} pts</span></div>
+    </div>`:''}
+
+    <div class="report-section">
+      <h3>Key recommendations</h3>
+      ${lastSleep.dur<7?'<div class="insight bad">Sleep is below 7h — this is the highest-leverage fix available to you.</div>':''}
+      ${pct(pts,mx)<60?'<div class="insight warn">Habit score under 60% — aim to close at least 2 more habits before bed.</div>':'<div class="insight good">Strong habit completion — maintain this consistency for streak multiplier growth.</div>'}
+      ${S.weightGoalType==='gain'&&(todayKcal-todayBurned)<calcTDEE(S.profile.weight)?'<div class="insight warn">Calorie deficit on a bulk goal — add 300–500 kcal to tomorrow\'s intake.</div>':''}
+    </div>
+  `;
+
+  document.getElementById('report-content').innerHTML = content;
+  openModal('reportModal');
+}
+
+function exportReport(){
+  const content = document.getElementById('report-content').innerHTML;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OPUS Report</title>
+  <style>body{font-family:system-ui,sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#0a0a0f;color:#f0f0f8}
+  .report-header{background:rgba(124,108,250,0.15);border-radius:16px;padding:32px;text-align:center;margin-bottom:24px}
+  .report-score-ring{width:80px;height:80px;border-radius:50%;border:3px solid #7c6cfa;display:flex;align-items:center;justify-content:center;flex-direction:column;margin:0 auto 12px}
+  .report-score-num{font-size:28px;font-weight:800;color:#7c6cfa}
+  .report-title{font-size:20px;font-weight:700}
+  .report-section{margin-bottom:20px}
+  .report-section h3{font-size:11px;color:#7c6cfa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .report-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.07);font-size:13px}
+  .report-val{font-weight:600}
+  .metric-green{color:#2ecc8f}.metric-amber{color:#f5a623}.metric-red{color:#ff5c5c}.metric-accent{color:#7c6cfa}
+  .insight{border-left:2px solid #7c6cfa;background:rgba(124,108,250,0.1);border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:8px;font-size:13px}
+  .insight.good{border-color:#2ecc8f;background:rgba(46,204,143,0.1)}
+  .insight.bad{border-color:#ff5c5c;background:rgba(255,92,92,0.1)}
+  .insight.warn{border-color:#f5a623;background:rgba(245,166,35,0.1)}
+  </style></head><body>${content}</body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='opus-report-'+dateStr(0)+'.html';a.click();
+}
+
+/* ============================================================
+   INIT — handled by bootApp() after Supabase auth confirms login
+   ============================================================ */
+function dateStr(offset=0) {
+  const d = new Date(); d.setDate(d.getDate()+offset);
+  return d.toISOString().split('T')[0];
+}
+</script>
+</body>
+</html>
